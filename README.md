@@ -1,5 +1,7 @@
 # URL Shortener
 
+**Live demo:** https://url-shortener-d902.onrender.com (free tier — may take 30-60s to wake up on first visit). Runs a simplified single-node build from the [`deploy`](../../tree/deploy) branch; this branch is the full local multi-node/sharded architecture described below.
+
 A Spring Boot URL shortener built as a hands-on exercise in scaling a simple CRUD service into a distributed-systems-shaped design: decentralized ID generation, non-enumerable short codes, a sharded database, a multi-node app layer behind a load balancer, and cache stampede protection.
 
 ## How it works
