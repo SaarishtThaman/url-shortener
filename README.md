@@ -116,6 +116,26 @@ A `GET` followed by a `SET` indicates a cache miss (DB was hit). A `GET` with no
 
 `lookupByShortCode` uses `@Cacheable(sync = true)` for cache stampede protection — concurrent requests for the same code on the same app node block on one DB lookup instead of each independently missing the cache. This only synchronizes within a single node; it doesn't prevent two different app nodes from independently missing the same key at the same instant, which would need a distributed lock in Redis to fully close.
 
+## Internet Deployment
+
+The `deploy` branch has a simplified single-node configuration (one Postgres shard instead of two, no nginx/multi-node — just one app instance) for hosting on free tiers, alongside the `main` branch's local multi-node/sharded demo setup.
+
+**What's different on `deploy`:**
+- Only `SHARD_0_*` is configured — no second shard, so `ShardRouter` naturally always routes to the one DB.
+- `server.port` reads Render's injected `PORT` env var.
+- `application-prod.properties` (activated via `SPRING_PROFILES_ACTIVE=prod`) points Redis at a `rediss://` TLS URL instead of a plain host/port, since Upstash requires TLS.
+- The `Dockerfile` is a proper multi-stage build (compiles from source inside the image) rather than expecting a pre-built jar, since Render builds straight from a fresh git checkout.
+
+**Setup** (all free, no credit card required on any of these three):
+
+1. **Database — [Supabase](https://supabase.com)**: create a free project. Under Project Settings → Database → Connection string, copy the **JDBC** format connection string — use it as `SHARD_0_URL`, with the project's Postgres username/password as `SHARD_0_USERNAME`/`SHARD_0_PASSWORD`. Run `init.sql` against it once (Supabase's SQL Editor, paste-and-run) to create the `url_mappings` table, since `ddl-auto=validate` won't create it for you.
+2. **Cache — [Upstash](https://upstash.com)**: create a free Redis database. Copy the `rediss://` connection URL it gives you directly — that's `REDIS_URL`.
+3. **App — [Render](https://render.com)**: New → Blueprint → connect this GitHub repo → select the **`deploy`** branch (not `main`) → Render reads `render.yaml` and prompts for the env vars marked `sync: false` (`SHARD_0_URL`, `SHARD_0_USERNAME`, `SHARD_0_PASSWORD`, `REDIS_URL`) → deploy.
+
+**Known trade-offs of staying on free tiers** (worth knowing before sharing the link):
+- Render's free web service sleeps after 15 minutes idle — first request after that takes ~30-60s to cold-start.
+- Supabase's free project auto-pauses after 7 days of *no activity at all* (data is retained, but it needs a manual resume from the Supabase dashboard — it won't wake itself on an incoming request the way Render does). If the link hasn't been visited in over a week, expect it to error until manually resumed.
+
 ## Future Improvements
 
 Deliberately left undone, with reasoning:

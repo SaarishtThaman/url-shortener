@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: url-shortener
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: free
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      - key: SHARD_0_URL
+        sync: false
+      - key: SHARD_0_USERNAME
+        sync: false
+      - key: SHARD_0_PASSWORD
+        sync: false
+      - key: REDIS_URL
+        sync: false
