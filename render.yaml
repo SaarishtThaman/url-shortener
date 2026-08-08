@@ -6,13 +6,7 @@ services:
     dockerContext: .
     plan: free
     envVars:
-      - key: SPRING_PROFILES_ACTIVE
-        value: prod
-      - key: SHARD_0_URL
-        sync: false
-      - key: SHARD_0_USERNAME
-        sync: false
-      - key: SHARD_0_PASSWORD
-        sync: false
-      - key: REDIS_URL
-        sync: false
+      - key: DB_USERNAME
+        value: admin
+      - key: DB_PASSWORD
+        value: admin

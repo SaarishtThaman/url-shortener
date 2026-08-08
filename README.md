@@ -118,23 +118,19 @@ A `GET` followed by a `SET` indicates a cache miss (DB was hit). A `GET` with no
 
 ## Internet Deployment
 
-The `deploy` branch has a simplified single-node configuration (one Postgres shard instead of two, no nginx/multi-node — just one app instance) for hosting on free tiers, alongside the `main` branch's local multi-node/sharded demo setup.
+The `deploy` branch runs everything — Postgres, Redis, and the app — as three processes inside **one container**, for the simplest possible free-tier hosting, alongside the `main` branch's local multi-node/sharded demo setup.
 
 **What's different on `deploy`:**
-- Only `SHARD_0_*` is configured — no second shard, so `ShardRouter` naturally always routes to the one DB.
+- `Dockerfile` installs `postgresql16` and `redis` alongside the JDK; `entrypoint.sh` initializes a fresh Postgres data directory, creates the `admin`/`urlshortener` DB, applies `init.sql`, starts Redis, then starts the app — all on every container start, since free-tier compute has no persistent disk anyway (data doesn't survive a cold-start regardless of where it lives, so there's no downside to keeping it in-container).
+- Postgres and Redis are both bound to `127.0.0.1` only — never reachable from outside the container, only from the app process alongside them.
 - `server.port` reads Render's injected `PORT` env var.
-- `application-prod.properties` (activated via `SPRING_PROFILES_ACTIVE=prod`) points Redis at a `rediss://` TLS URL instead of a plain host/port, since Upstash requires TLS.
-- The `Dockerfile` is a proper multi-stage build (compiles from source inside the image) rather than expecting a pre-built jar, since Render builds straight from a fresh git checkout.
+- No external database or cache service — `SHARD_0_URL`/Redis host both default to `localhost` already in `application.properties`, matching this setup with zero extra config.
 
-**Setup** (all free, no credit card required on any of these three):
+**Setup** (free, no credit card):
 
-1. **Database — [Supabase](https://supabase.com)**: create a free project. Under Project Settings → Database → Connection string, copy the **JDBC** format connection string — use it as `SHARD_0_URL`, with the project's Postgres username/password as `SHARD_0_USERNAME`/`SHARD_0_PASSWORD`. Run `init.sql` against it once (Supabase's SQL Editor, paste-and-run) to create the `url_mappings` table, since `ddl-auto=validate` won't create it for you.
-2. **Cache — [Upstash](https://upstash.com)**: create a free Redis database. Copy the `rediss://` connection URL it gives you directly — that's `REDIS_URL`.
-3. **App — [Render](https://render.com)**: New → Blueprint → connect this GitHub repo → select the **`deploy`** branch (not `main`) → Render reads `render.yaml` and prompts for the env vars marked `sync: false` (`SHARD_0_URL`, `SHARD_0_USERNAME`, `SHARD_0_PASSWORD`, `REDIS_URL`) → deploy.
+**App — [Render](https://render.com)**: New → Blueprint → connect this GitHub repo → select the **`deploy`** branch (not `main`) → Render reads `render.yaml` and deploys. No manual env var entry needed — `render.yaml` already sets the (non-secret, container-internal-only) DB credentials.
 
-**Known trade-offs of staying on free tiers** (worth knowing before sharing the link):
-- Render's free web service sleeps after 15 minutes idle — first request after that takes ~30-60s to cold-start.
-- Supabase's free project auto-pauses after 7 days of *no activity at all* (data is retained, but it needs a manual resume from the Supabase dashboard — it won't wake itself on an incoming request the way Render does). If the link hasn't been visited in over a week, expect it to error until manually resumed.
+**Known trade-off of staying on free tiers:** Render's free web service sleeps after 15 minutes idle, and since the database lives in the same container, a cold-start wipes it — every wake-up is a fresh, empty database. Fine for a resume-link demo where nobody's relying on old links surviving; not fine for anything real.
 
 ## Future Improvements
 
