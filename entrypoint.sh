@@ -3,8 +3,8 @@ set -e
 
 export PGDATA=/var/lib/postgresql/data
 
-mkdir -p "$PGDATA"
-chown -R postgres:postgres /var/lib/postgresql
+mkdir -p "$PGDATA" /run/postgresql
+chown -R postgres:postgres /var/lib/postgresql /run/postgresql
 
 su-exec postgres initdb -D "$PGDATA" >/tmp/initdb.log 2>&1
 su-exec postgres pg_ctl -D "$PGDATA" -o "-c listen_addresses=127.0.0.1 -c port=5432" -w start
