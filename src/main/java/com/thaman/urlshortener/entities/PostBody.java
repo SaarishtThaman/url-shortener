@@ -1,9 +1,5 @@
 package com.thaman.urlshortener.entities;
 
-public class PostBody {
-  public String url;
+import jakarta.validation.constraints.NotBlank;
 
-  public String getUrl() {
-    return url;
-  }
-}
+public record PostBody(@NotBlank(message = "url must not be blank") String url) {}

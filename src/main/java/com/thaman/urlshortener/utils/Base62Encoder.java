@@ -1,5 +1,10 @@
 package com.thaman.urlshortener.utils;
 
+/**
+ * Superseded by {@link ShortCodeCodec}, which scrambles IDs via Sqids instead of encoding them
+ * sequentially. Kept unused for reference.
+ */
+@Deprecated
 public class Base62Encoder {
 
   private static final String CHARACTERS =

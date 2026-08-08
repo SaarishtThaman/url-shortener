@@ -1,20 +1,21 @@
 package com.thaman.urlshortener.entities;
 
 import jakarta.persistence.*;
+import org.springframework.data.domain.Persistable;
 
 @Entity
 @Table(name = "url_mappings")
-public class URLMapping {
+public class URLMapping implements Persistable<Long> {
   @Id
-  @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
 
-  @Column(nullable = false, unique = true)
+  @Column(nullable = false)
   private String originalUrl;
 
   public URLMapping() {}
 
-  public URLMapping(String originalUrl) {
+  public URLMapping(Long id, String originalUrl) {
+    this.id = id;
     this.originalUrl = originalUrl;
   }
 
@@ -24,5 +25,10 @@ public class URLMapping {
 
   public String getOriginalUrl() {
     return originalUrl;
+  }
+
+  @Override
+  public boolean isNew() {
+    return true;
   }
 }

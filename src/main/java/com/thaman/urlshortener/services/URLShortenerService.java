@@ -2,41 +2,43 @@ package com.thaman.urlshortener.services;
 
 import com.thaman.urlshortener.entities.URLMapping;
 import com.thaman.urlshortener.repositories.URLMappingRepository;
-import com.thaman.urlshortener.utils.Base62Encoder;
+import com.thaman.urlshortener.utils.ShardContext;
+import com.thaman.urlshortener.utils.ShardRouter;
+import com.thaman.urlshortener.utils.ShortCodeCodec;
+import com.thaman.urlshortener.utils.SnowflakeIdGenerator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
-
-import java.util.Optional;
 
 @Service
 public class URLShortenerService {
 
   @Autowired URLMappingRepository repository;
+  @Autowired SnowflakeIdGenerator idGenerator;
+  @Autowired ShortCodeCodec shortCodeCodec;
+  @Autowired ShardRouter shardRouter;
 
   public String registerUrl(String url) {
-    return repository
-        .findByOriginalUrl(url)
-        .map(existing -> Base62Encoder.encode(existing.getId()))
-        .orElseGet(
-            () -> {
-              try {
-                URLMapping saved = repository.save(new URLMapping(url));
-                return Base62Encoder.encode(saved.getId());
-              } catch (DataIntegrityViolationException e) {
-                return repository
-                    .findByOriginalUrl(url)
-                    .map(existing -> Base62Encoder.encode(existing.getId()))
-                    .orElseThrow();
-              }
-            });
+    long id = idGenerator.nextId();
+    ShardContext.setShard(shardRouter.shardFor(id));
+    try {
+      URLMapping saved = repository.save(new URLMapping(id, url));
+      return shortCodeCodec.encode(saved.getId());
+    } finally {
+      ShardContext.clear();
+    }
   }
 
-    @Cacheable(value = "urlCache", key = "#shortCode", unless = "#result == null")
+    @Cacheable(value = "urlCache", key = "#shortCode", sync = true)
     public String lookupByShortCode(String shortCode) {
-        return repository.findById(Base62Encoder.decode(shortCode))
-                .map(URLMapping::getOriginalUrl)
-                .orElse(null);
+        long id = shortCodeCodec.decode(shortCode);
+        ShardContext.setShard(shardRouter.shardFor(id));
+        try {
+            return repository.findById(id)
+                    .map(URLMapping::getOriginalUrl)
+                    .orElse(null);
+        } finally {
+            ShardContext.clear();
+        }
     }
 }

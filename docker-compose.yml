@@ -1,19 +1,49 @@
 services:
-  app:
-    build: .
+  nginx:
+    image: nginx:1.27-alpine
     ports:
-      - "8080:8080"
+      - "8080:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
-      - postgres
+      - app1
+      - app2
+
+  app1:
+    build: .
+    depends_on:
+      - postgres-shard0
+      - postgres-shard1
       - redis
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/urlshortener
-      SPRING_DATASOURCE_USERNAME: admin
-      SPRING_DATASOURCE_PASSWORD: admin
       SPRING_DATA_REDIS_HOST: redis
-      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+      APP_SNOWFLAKE_MACHINE_ID: 1
+      APP_SHARDING_SHARDS_0_URL: jdbc:postgresql://postgres-shard0:5432/urlshortener
+      APP_SHARDING_SHARDS_0_USERNAME: admin
+      APP_SHARDING_SHARDS_0_PASSWORD: admin
+      APP_SHARDING_SHARDS_1_URL: jdbc:postgresql://postgres-shard1:5432/urlshortener
+      APP_SHARDING_SHARDS_1_USERNAME: admin
+      APP_SHARDING_SHARDS_1_PASSWORD: admin
 
-  postgres:
+  app2:
+    build: .
+    depends_on:
+      - postgres-shard0
+      - postgres-shard1
+      - redis
+    environment:
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+      APP_SNOWFLAKE_MACHINE_ID: 2
+      APP_SHARDING_SHARDS_0_URL: jdbc:postgresql://postgres-shard0:5432/urlshortener
+      APP_SHARDING_SHARDS_0_USERNAME: admin
+      APP_SHARDING_SHARDS_0_PASSWORD: admin
+      APP_SHARDING_SHARDS_1_URL: jdbc:postgresql://postgres-shard1:5432/urlshortener
+      APP_SHARDING_SHARDS_1_USERNAME: admin
+      APP_SHARDING_SHARDS_1_PASSWORD: admin
+
+  postgres-shard0:
     image: postgres:16.2
     ports:
       - "5432:5432"
@@ -21,6 +51,19 @@ services:
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: admin
       POSTGRES_DB: urlshortener
+    volumes:
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+
+  postgres-shard1:
+    image: postgres:16.2
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: urlshortener
+    volumes:
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
 
   redis:
     image: redis:7.2
